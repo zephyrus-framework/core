@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ophelios-studio/zephyrus-core/dev/.github/assets/zephyrus-logo-dark.png">
-    <img src="https://raw.githubusercontent.com/ophelios-studio/zephyrus-core/dev/.github/assets/zephyrus-logo-light.png" alt="Zephyrus" width="325" height="55">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zephyrus-framework/core/dev/.github/assets/zephyrus-logo-dark.png">
+    <img src="https://raw.githubusercontent.com/zephyrus-framework/core/dev/.github/assets/zephyrus-logo-light.png" alt="Zephyrus" width="325" height="55">
   </picture>
 </p>
 

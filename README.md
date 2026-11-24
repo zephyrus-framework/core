@@ -7,9 +7,9 @@
 
 <div align="center">
 
-[![CI](https://github.com/ophelios-studio/zephyrus-core/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/ophelios-studio/zephyrus-core/actions/workflows/ci.yml)
+[![CI](https://github.com/zephyrus-framework/core/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/zephyrus-framework/core/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ophelios-studio/zephyrus-core/graph/badge.svg)](https://codecov.io/gh/ophelios-studio/zephyrus-core)
-[![Mutation score](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fophelios-studio%2Fzephyrus-core%2Fdev)](https://github.com/ophelios-studio/zephyrus-core/actions/workflows/mutation.yml)
+[![Mutation score](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fzephyrus-framework%2Fcore%2Fdev)](https://github.com/zephyrus-framework/core/actions/workflows/mutation.yml)
 [![Packagist](https://img.shields.io/packagist/v/zephyrus-framework/core)](https://packagist.org/packages/zephyrus-framework/core)
 [![PHP](https://img.shields.io/packagist/dependency-v/zephyrus-framework/core/php)](https://packagist.org/packages/zephyrus-framework/core)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen)](phpstan.neon.dist)
@@ -20,7 +20,7 @@
 A cohesive PHP 8.4+ framework core for server-rendered applications and JSON APIs. Attribute-based routing, immutable HTTP objects, typed configuration, and a full security middleware stack that refuses to boot when a declared protection is not mounted. It is a library, not a skeleton generator: your application is your own classes, a `config.yml` and a front controller.
 
 <p align="center"><strong>
-  <a href="https://zephyrus.ophelios.com/getting-started/introduction/">Documentation</a> &nbsp;·&nbsp; <a href="https://zephyrus.ophelios.com/fr/getting-started/introduction/">Documentation en français</a> &nbsp;·&nbsp; <a href="https://github.com/ophelios-studio/zephyrus-core/blob/dev/CHANGELOG.md">Changelog</a>
+  <a href="https://zephyrus.ophelios.com/getting-started/introduction/">Documentation</a> &nbsp;·&nbsp; <a href="https://zephyrus.ophelios.com/fr/getting-started/introduction/">Documentation en français</a> &nbsp;·&nbsp; <a href="https://github.com/zephyrus-framework/core/blob/dev/CHANGELOG.md">Changelog</a>
 </strong></p>
 
 ## Highlights
@@ -40,7 +40,7 @@ Also in the package: [Latte views](https://zephyrus.ophelios.com/fundamentals/vi
 composer require zephyrus-framework/core
 ```
 
-From 3.17.0 the API is stable and follows semantic versioning: minor and patch releases stay compatible, and a breaking change waits for the next major, announced first by a deprecation. Composer does not move from `^0.16` to `^3.17` on its own: change the constraint by hand, then follow the [upgrade guide](https://github.com/ophelios-studio/zephyrus-core/blob/dev/UPGRADE.md), which lists every breaking change since 0.13 by domain, each with the change to make in your code and a way to check it.
+From 3.17.0 the API is stable and follows semantic versioning: minor and patch releases stay compatible, and a breaking change waits for the next major, announced first by a deprecation. Composer does not move from `^0.16` to `^3.17` on its own: change the constraint by hand, then follow the [upgrade guide](https://github.com/zephyrus-framework/core/blob/dev/UPGRADE.md), which lists every breaking change since 0.13 by domain, each with the change to make in your code and a way to check it.
 
 | Requirement | Version |
 |---|---|
@@ -138,7 +138,7 @@ The built-in server is for development only. The [first application](https://zep
 ## Development
 
 ```bash
-git clone https://github.com/ophelios-studio/zephyrus-core zephyrus-core
+git clone https://github.com/zephyrus-framework/core zephyrus-core
 cd zephyrus-core
 composer install
 composer test      # PHPUnit

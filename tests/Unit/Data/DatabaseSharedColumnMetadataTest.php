@@ -655,7 +655,7 @@ final class DatabaseSharedColumnMetadataTest extends TestCase
         array $second,
         string $secondSql,
     ): void {
-        MetaSpyStatement::$nativeTypeByName = ['id' => 'INT4', 'price' => 'NUMERIC'];
+        MetaSpyStatement::$nativeTypeByName = ['id' => 'INT4', 'price' => 'NUMERIC', '1' => 'INT4', 's' => 'TEXT'];
 
         $one = $this->makeDatabaseFrom($first);
         $this->seedTwoColumnRow($one);
@@ -690,6 +690,13 @@ final class DatabaseSharedColumnMetadataTest extends TestCase
             '/**/' . $sql,
             [...$base, 'columnCacheVersion' => 'v1/**/'],
             $sql,
+        ];
+
+        yield 'a schema version that contains the separator' => [
+            [...$base, 'columnCacheVersion' => "v|SELECT 'a"],
+            "SELECT 1 -- it's",
+            [...$base, 'columnCacheVersion' => 'v'],
+            "SELECT 'a|SELECT 1 -- it's",
         ];
     }
 

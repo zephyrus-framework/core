@@ -28,7 +28,7 @@ final class Database
     private array $columnTypeCache = [];
 
     /**
-     * Process-wide column shapes, keyed by sha1(dsn . '|' . columnCacheVersion . '|' . sql) . '|' . columnCount.
+     * Process-wide column shapes, keyed by sha1(strlen(dsn) . ':' . dsn . strlen(columnCacheVersion) . ':' . columnCacheVersion . sql) . '|' . columnCount.
      *
      * Holds plain data (column name => native type), never converters: each instance
      * rebuilds its callables from its own registry, so an override such as a string
@@ -1293,7 +1293,7 @@ final class Database
 
         $shared = $this->connectionDsn !== null && self::$sharedColumnMetadataEnabled;
         $sharedKey = $shared
-            ? sha1($this->connectionDsn . '|' . $this->columnCacheVersion . '|' . $sql) . '|' . $columnCount
+            ? sha1(strlen($this->connectionDsn) . ':' . $this->connectionDsn . strlen($this->columnCacheVersion) . ':' . $this->columnCacheVersion . $sql) . '|' . $columnCount
             : '';
         $shape = null;
 

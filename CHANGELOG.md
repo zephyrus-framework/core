@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 a breaking change waits for the next major, deprecated first. Before 3.17.0, a minor version could break the API: those
 changes are listed first, each with the change to make in your code.
 
+## [Unreleased]
+
+### Fixed
+
+- The shared column metadata cache key separates the DSN, the `columnCacheVersion` and the statement unambiguously, so a version that contains `|` no longer lets two statements share a column shape. Existing APCu entries go cold once after upgrading: the first query of each statement reads its column metadata again.
+
 ## [3.18.0] - 2026-11-20
 
 ### Added

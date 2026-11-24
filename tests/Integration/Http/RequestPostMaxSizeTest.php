@@ -198,13 +198,18 @@ final class RequestPostMaxSizeTest extends TestCase
             $head .= "{$name}: {$value}\r\n";
         }
         if ($chunked) {
-            fwrite($socket, $head . "Transfer-Encoding: chunked\r\n\r\n");
+            $sent = self::write($socket, $head . "Transfer-Encoding: chunked\r\n\r\n");
             foreach (str_split($body, 8_192) as $chunk) {
-                fwrite($socket, dechex(strlen($chunk)) . "\r\n" . $chunk . "\r\n");
+                if (!$sent) {
+                    break;
+                }
+                $sent = self::write($socket, dechex(strlen($chunk)) . "\r\n" . $chunk . "\r\n");
             }
-            fwrite($socket, "0\r\n\r\n");
+            if ($sent) {
+                self::write($socket, "0\r\n\r\n");
+            }
         } else {
-            fwrite($socket, $head . 'Content-Length: ' . strlen($body) . "\r\n\r\n" . $body);
+            self::write($socket, $head . 'Content-Length: ' . strlen($body) . "\r\n\r\n" . $body);
         }
 
         $response = (string) stream_get_contents($socket);
@@ -216,6 +221,24 @@ final class RequestPostMaxSizeTest extends TestCase
 
         /** @var array{truncated: bool, readLimit: int, fields: list<string>, status: ?int, report: ?string} */
         return json_decode(substr($response, (int) strpos($response, "\r\n\r\n") + 4), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /** Writes to the socket; false when fwrite() fails, typically once the server has closed it past post_max_size. */
+    private static function write(mixed $socket, string $data): bool
+    {
+        $previous = set_error_handler(static function (int $errno, string $message, string $file = '', int $line = 0) use (&$previous): bool {
+            if (in_array($errno, [E_WARNING, E_NOTICE], true) && (str_contains($message, 'Broken pipe') || str_contains($message, 'errno=32'))) {
+                return true;
+            }
+
+            return $previous !== null && (bool) $previous($errno, $message, $file, $line);
+        });
+
+        try {
+            return fwrite($socket, $data) !== false;
+        } finally {
+            restore_error_handler();
+        }
     }
 
     /** The port of the server running with this enable_post_data_reading, started on first use. */

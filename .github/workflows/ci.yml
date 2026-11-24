@@ -119,12 +119,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Only this job references CODECOV_TOKEN, and it runs no repository or dependency code.
+  # Only this job references CODECOV_TOKEN, an environment secret, and it runs no repository or dependency code.
   codecov:
     name: Codecov upload
     needs: tests
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    environment: codecov
     permissions:
       contents: read
 

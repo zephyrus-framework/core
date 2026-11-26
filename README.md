@@ -8,7 +8,7 @@
 <div align="center">
 
 [![CI](https://github.com/zephyrus-framework/core/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/zephyrus-framework/core/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/ophelios-studio/zephyrus-core/graph/badge.svg)](https://codecov.io/gh/ophelios-studio/zephyrus-core)
+[![codecov](https://codecov.io/gh/zephyrus-framework/core/branch/dev/graph/badge.svg)](https://app.codecov.io/gh/zephyrus-framework/core/tree/dev)
 [![Mutation score](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fzephyrus-framework%2Fcore%2Fdev)](https://github.com/zephyrus-framework/core/actions/workflows/mutation.yml)
 [![Packagist](https://img.shields.io/packagist/v/zephyrus-framework/core)](https://packagist.org/packages/zephyrus-framework/core)
 [![PHP](https://img.shields.io/packagist/dependency-v/zephyrus-framework/core/php)](https://packagist.org/packages/zephyrus-framework/core)

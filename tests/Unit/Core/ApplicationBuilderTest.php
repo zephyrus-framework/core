@@ -507,6 +507,81 @@ final class ApplicationBuilderTest extends TestCase
         self::assertSame('Hola Alice', $app->trans('greet', ['name' => 'Alice'], 'es'));
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function defaultLocaleRefusals(): array
+    {
+        return [
+            'withLocaleLoader' => ['withLocaleLoader', '../x'],
+            'withJsonLocales' => ['withJsonLocales', '*'],
+            'withJsonLocaleLayers' => ['withJsonLocaleLayers', 'fr en'],
+            'withFallbackLoaders' => ['withFallbackLoaders', ''],
+        ];
+    }
+
+    #[DataProvider('defaultLocaleRefusals')]
+    public function testADefaultLocaleThatIsNotALocaleTagIsRefusedNamingTheMethod(string $method, string $locale): void
+    {
+        try {
+            $ignored = $this->callWithDefaultLocale($method, $locale);
+            self::fail('expected a refusal');
+        } catch (InvalidArgumentException $e) {
+            self::assertSame(
+                $method . '(): $defaultLocale ' . ($locale === '' ? '""' : '"' . $locale . '"')
+                . ' is refused: must be a locale tag, such as fr or pt-BR.',
+                $e->getMessage(),
+            );
+        }
+    }
+
+    public function testARefusedDefaultLocaleIsShownEscapedAndCut(): void
+    {
+        try {
+            $ignored = $this->callWithDefaultLocale('withJsonLocales', str_repeat('a', 1000));
+            self::fail('expected a refusal');
+        } catch (InvalidArgumentException $e) {
+            self::assertSame(
+                'withJsonLocales(): $defaultLocale "' . str_repeat('a', 64) . '..." (1000 bytes)'
+                . ' is refused: must be a locale tag, such as fr or pt-BR.',
+                $e->getMessage(),
+            );
+        }
+    }
+
+    public function testAHandBuiltConfigWithAnInvalidLocaleIsRefusedNamingWithLocalizationConfig(): void
+    {
+        try {
+            $ignored = ApplicationBuilder::create()->withLocalizationConfig(
+                new LocalizationConfig(locale: '../x', supportedLocales: []),
+            );
+            self::fail('expected a refusal');
+        } catch (InvalidArgumentException $e) {
+            self::assertSame(
+                'withLocalizationConfig(): $defaultLocale "../x" is refused: must be a locale tag, such as fr or pt-BR.',
+                $e->getMessage(),
+            );
+        }
+    }
+
+    private function callWithDefaultLocale(string $method, string $locale): ApplicationBuilder
+    {
+        $loader = new class implements LocaleLoaderInterface {
+            public function load(string $locale): array
+            {
+                return [];
+            }
+        };
+        $builder = ApplicationBuilder::create();
+
+        return match ($method) {
+            'withLocaleLoader' => $builder->withLocaleLoader($loader, $locale),
+            'withJsonLocales' => $builder->withJsonLocales(__DIR__ . '/../../Fixtures/locales', $locale),
+            'withJsonLocaleLayers' => $builder->withJsonLocaleLayers([], $locale),
+            'withFallbackLoaders' => $builder->withFallbackLoaders([$loader], $locale),
+        };
+    }
+
     public function testWithLocalizationConfigWiresLocalePathAndSupportedLocales(): void
     {
         $app = ApplicationBuilder::create()

@@ -13,8 +13,9 @@ use Zephyrus\Localization\LocaleTag;
  * Immutable localization bootstrap config.
  *
  * YAML keys (aliases accepted where listed, one spelling per setting; any other key is refused):
- * - locale (defaultLocale, default_locale): translator default locale, lower-cased, so 'fr-CA' is
- *   stored as 'fr-ca'. Default 'en'.
+ * - locale (defaultLocale, default_locale): translator default locale, trimmed and lower-cased, so 'fr-CA' is
+ *   stored as 'fr-ca'. Default 'en'. REJECTED: a declared null (an unset !env without default); a blank value; a value
+ *   that is not a locale tag (fr, pt-BR, at most 35 bytes).
  * - supportedLocales (supported_locales): negotiation allowlist. Trimmed, lower-cased, null and blank
  *   entries dropped. Only [] or no key accepts every locale. Default [].
  *   REJECTED: a declared null (an unset !env without default); a value that is not a string or a list;
@@ -74,7 +75,7 @@ final readonly class LocalizationConfig
     /**
      * @param array<string, mixed> $values
      * @throws ConfigurationException if a key is unknown or a setting is written in two spellings.
-     *         If locale or timezone is blank.
+     *         If locale is declared null, or locale or timezone is blank, or locale is not a locale tag.
      *         If supportedLocales is declared null, is not a string or a list, or names no locale.
      *         If a supportedLocales entry is neither a string nor null, contains a comma or is not a locale tag.
      *         If currency, grouping_separator, date_format, time_format or datetime_format is invalid.
@@ -82,6 +83,15 @@ final readonly class LocalizationConfig
     public static function fromArray(array $values): self
     {
         $keys = ConfigKeys::read('localization', $values, self::SPELLINGS);
+
+        if ($keys->value('locale') === null && $keys->has('locale')) {
+            throw ConfigurationException::invalidValue(
+                'localization',
+                'locale',
+                null,
+                self::NOT_A_LOCALE_TAG . '; ' . ConfigBoolean::unsetEnvHint('fr'),
+            );
+        }
 
         $locale = trim((string) ($keys->value('locale') ?? 'en'));
         $declaredLocales = $keys->value('supportedLocales');
@@ -109,6 +119,10 @@ final readonly class LocalizationConfig
 
         if ($locale === '') {
             throw ConfigurationException::invalidValue('localization', 'locale', $locale, 'must be non-empty');
+        }
+
+        if (!self::isLocaleTag($locale)) {
+            throw ConfigurationException::invalidValue('localization', 'locale', $locale, self::NOT_A_LOCALE_TAG);
         }
 
         if ($timezone === '') {
@@ -285,6 +299,27 @@ final readonly class LocalizationConfig
     }
 
     /**
+     * Refuse a default locale argument that is not a locale tag, naming the method.
+     *
+     * @internal Shared with ApplicationBuilder.
+     * @throws InvalidArgumentException if the value is not a locale tag.
+     */
+    public static function assertDefaultLocaleArgument(string $method, string $defaultLocale): void
+    {
+        if (!self::isLocaleTag($defaultLocale)) {
+            throw new InvalidArgumentException(
+                $method . '(): $defaultLocale ' . MessageValue::quote($defaultLocale)
+                . ' is refused: ' . self::NOT_A_LOCALE_TAG . '.',
+            );
+        }
+    }
+
+    private static function isLocaleTag(string $tag): bool
+    {
+        return strlen($tag) <= LocaleTag::MAX_LENGTH && LocaleTag::isWellFormed($tag);
+    }
+
+    /**
      * An entry index as a refusal shows it: a key over 64 bytes is quoted and cut, a shorter one is escaped as is.
      */
     private static function shownIndex(int|string $index): string
@@ -320,7 +355,7 @@ final readonly class LocalizationConfig
             }
 
             $tag = trim($locale);
-            if ($tag !== '' && (strlen($tag) > LocaleTag::MAX_LENGTH || !LocaleTag::isWellFormed($tag))) {
+            if ($tag !== '' && !self::isLocaleTag($tag)) {
                 return ['index' => $i, 'reason' => self::NOT_A_LOCALE_TAG];
             }
 

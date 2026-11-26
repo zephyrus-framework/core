@@ -304,10 +304,14 @@ final class ApplicationBuilder
 
     /**
      * Sets the translation loader and default locale. The last loader-setting call wins, including withConfiguration().
+     *
+     * @throws InvalidArgumentException when $defaultLocale is not a locale tag (it is not trimmed).
      */
     #[\NoDiscard]
     public function withLocaleLoader(LocaleLoaderInterface $loader, string $defaultLocale = 'en'): self
     {
+        LocalizationConfig::assertDefaultLocaleArgument('withLocaleLoader', $defaultLocale);
+
         $clone = clone $this;
         $clone->localeLoader = $loader;
         $clone->defaultLocale = $defaultLocale;
@@ -319,10 +323,14 @@ final class ApplicationBuilder
      * Loads JSON catalogs from one directory. Files are read lazily: an unreadable or invalid file
      * throws LocalizationException when its locale is loaded, not here. A missing directory or file
      * gives an empty catalog (keys are returned as is).
+     *
+     * @throws InvalidArgumentException when $defaultLocale is not a locale tag (it is not trimmed).
      */
     #[\NoDiscard]
     public function withJsonLocales(string $basePath, string $defaultLocale = 'en'): self
     {
+        LocalizationConfig::assertDefaultLocaleArgument('withJsonLocales', $defaultLocale);
+
         return $this->withLocaleLoader(new JsonLocaleLoader($basePath), $defaultLocale);
     }
 
@@ -331,10 +339,13 @@ final class ApplicationBuilder
      * last-wins order. Later paths override earlier paths for duplicate keys.
      *
      * @param string[] $basePaths
+     * @throws InvalidArgumentException when $defaultLocale is not a locale tag (it is not trimmed).
      */
     #[\NoDiscard]
     public function withJsonLocaleLayers(array $basePaths, string $defaultLocale = 'en'): self
     {
+        LocalizationConfig::assertDefaultLocaleArgument('withJsonLocaleLayers', $defaultLocale);
+
         $loaders = array_values(array_map(
             static fn (string $basePath): JsonLocaleLoader => new JsonLocaleLoader($basePath),
             $basePaths,
@@ -357,10 +368,13 @@ final class ApplicationBuilder
      * order. Later loaders override earlier loaders for the same key.
      *
      * @param LocaleLoaderInterface[] $loaders
+     * @throws InvalidArgumentException when $defaultLocale is not a locale tag (it is not trimmed).
      */
     #[\NoDiscard]
     public function withFallbackLoaders(array $loaders, string $defaultLocale = 'en'): self
     {
+        LocalizationConfig::assertDefaultLocaleArgument('withFallbackLoaders', $defaultLocale);
+
         return $this->withLocaleLoader(new FallbackLocaleLoader($loaders), $defaultLocale);
     }
 
@@ -386,10 +400,13 @@ final class ApplicationBuilder
      *
      * @param LocalizationConfig $config
      * @param string|null        $basePath Prefixed to a relative locale_path when given.
+     * @throws InvalidArgumentException when the config locale is not a locale tag.
      */
     #[\NoDiscard]
     public function withLocalizationConfig(LocalizationConfig $config, ?string $basePath = null): self
     {
+        LocalizationConfig::assertDefaultLocaleArgument('withLocalizationConfig', $config->locale);
+
         $builder = $this;
 
         if ($config->localePath !== null) {

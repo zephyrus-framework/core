@@ -52,6 +52,57 @@ final class LocalizationConfigTest extends TestCase
         LocalizationConfig::fromArray(['locale' => '   ']);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function notDefaultLocaleTags(): array
+    {
+        return [
+            'a path' => ['../x'],
+            'a wildcard' => ['*'],
+            'a header injection' => ["fr\r\nX"],
+            'a lone hyphen' => ['-'],
+            'an inner space' => ['fr en'],
+            'a well-formed tag one byte over the limit' => ['ab-abcdefgh-abcdefgh-abcdefgh-abcdef'],
+        ];
+    }
+
+    #[DataProvider('notDefaultLocaleTags')]
+    public function testADefaultLocaleThatIsNotALocaleTagIsRefused(string $locale): void
+    {
+        try {
+            LocalizationConfig::fromArray(['locale' => $locale]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $e) {
+            self::assertSame(
+                "Configuration section 'localization' field 'locale' has invalid value "
+                . MessageValue::quote($locale) . ': must be a locale tag, such as fr or pt-BR.',
+                $e->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function defaultLocaleTags(): array
+    {
+        return [
+            'a language' => ['fr', 'fr'],
+            'an underscore region' => ['fr_CA', 'fr_ca'],
+            'a hyphen region' => ['pt-BR', 'pt-br'],
+            'a script and region' => ['zh-Hant-TW', 'zh-hant-tw'],
+            'a tag at the length limit' => ['ab-abcdefgh-abcdefgh-abcdefgh-abcde', 'ab-abcdefgh-abcdefgh-abcdefgh-abcde'],
+            'surrounding spaces' => [' fr ', 'fr'],
+        ];
+    }
+
+    #[DataProvider('defaultLocaleTags')]
+    public function testADefaultLocaleThatIsALocaleTagIsAcceptedLowerCased(string $locale, string $expected): void
+    {
+        self::assertSame($expected, LocalizationConfig::fromArray(['locale' => $locale])->locale);
+    }
+
     public function testFromArrayRejectsEmptyTimezone(): void
     {
         $this->expectException(ConfigurationException::class);
@@ -310,6 +361,53 @@ final class LocalizationConfigTest extends TestCase
         } finally {
             $directory->remove();
         }
+    }
+
+    private const string NULL_LOCALE_REFUSAL = "Configuration section 'localization' field 'locale' has invalid value null: "
+        . 'must be a locale tag, such as fr or pt-BR; an unset !env without a default reads as null; '
+        . 'add a default, such as !env NAME, fr.';
+
+    public function testADeclaredNullDefaultLocaleIsRefused(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['locale' => null]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(self::NULL_LOCALE_REFUSAL, $exception->getMessage());
+        }
+    }
+
+    #[DataProvider('unsetYamlLocales')]
+    public function testAYamlDefaultLocaleLeftEmptyOrUnsetEnvIsRefusedLikeANull(string $declaration): void
+    {
+        $directory = new CacheDirectory();
+        $file = $directory->file('config.yml', "localization:\n  locale: " . $declaration . "\n");
+
+        try {
+            Configuration::fromYamlFile($file);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(self::NULL_LOCALE_REFUSAL, $exception->getMessage());
+        } finally {
+            $directory->remove();
+        }
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unsetYamlLocales(): array
+    {
+        return [
+            'a tilde' => ['~'],
+            'a value left empty' => [''],
+            'an unset environment variable' => ['!env ZEPHYRUS_TEST_UNSET_LOCALE'],
+        ];
+    }
+
+    public function testAnAbsentDefaultLocaleIsEnglish(): void
+    {
+        self::assertSame('en', LocalizationConfig::fromArray([])->locale);
     }
 
     public function testAnAbsentOrEmptySupportedLocalesAcceptsEveryLocale(): void

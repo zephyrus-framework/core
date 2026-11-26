@@ -174,6 +174,61 @@ final class ApplicationBuilderOptionsTest extends TestCase
         }
     }
 
+    /**
+     * @return array<string, array{0: array<array-key, mixed>, 1: string}>
+     */
+    public static function refusedSupportedLocales(): array
+    {
+        return [
+            'an integer entry' => [[1], 'withSupportedLocales(): $locales[0] 1 is refused: each entry must be a string.'],
+            'a boolean entry' => [['fr', false], 'withSupportedLocales(): $locales[1] false is refused: each entry must be a string.'],
+            'an array entry' => [[['fr']], 'withSupportedLocales(): $locales[0] array is refused: each entry must be a string.'],
+            'a comma entry' => [['de', 'fr,en'], 'withSupportedLocales(): $locales[1] "fr,en" is refused: must be one locale; use list items, not a comma inside one item.'],
+            'a null entry' => [['fr', null], 'withSupportedLocales(): $locales[1] null is refused: each entry must be a string.'],
+            'a hyphen' => [['-'], 'withSupportedLocales(): $locales[0] "-" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'an underscore' => [['_'], 'withSupportedLocales(): $locales[0] "_" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'a spaced hyphen' => [[' - '], 'withSupportedLocales(): $locales[0] " - " is refused: must be a locale tag, such as fr or pt-BR.'],
+            'thirty-six bytes' => [[str_repeat('a', 36)], 'withSupportedLocales(): $locales[0] "' . str_repeat('a', 36) . '" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'a well-formed tag of thirty-six bytes' => [['ab-abcdefgh-abcdefgh-abcdefgh-abcdef'], 'withSupportedLocales(): $locales[0] "ab-abcdefgh-abcdefgh-abcdefgh-abcdef" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'a key with a line break' => [["k\r\nX: 1" => '-'], 'withSupportedLocales(): $locales[k\\r\\nX: 1] "-" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'semicolon separated tags' => [['fr;en'], 'withSupportedLocales(): $locales[0] "fr;en" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'an internal space' => [['fr en'], 'withSupportedLocales(): $locales[0] "fr en" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'a wildcard' => [['*'], 'withSupportedLocales(): $locales[0] "*" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'a form feed' => [["\f"], 'withSupportedLocales(): $locales[0] "\f" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'only blank entries' => [['', ' '], 'withSupportedLocales(): $locales names no locale, which would accept every locale; pass at least one, or an empty list to accept every locale.'],
+        ];
+    }
+
+    /**
+     * @param array<array-key, mixed> $locales
+     */
+    #[DataProvider('refusedSupportedLocales')]
+    public function testWithSupportedLocalesRefusesAListThatWouldNotRestrictAsDeclared(array $locales, string $message): void
+    {
+        try {
+            $ignored = ApplicationBuilder::create()->withSupportedLocales($locales);
+            self::fail('expected a refusal');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame($message, $exception->getMessage());
+        }
+    }
+
+    public function testWithSupportedLocalesAcceptsAnEmptyListAndNamedLocales(): void
+    {
+        self::assertInstanceOf(ApplicationBuilder::class, ApplicationBuilder::create()->withSupportedLocales([]));
+        self::assertInstanceOf(ApplicationBuilder::class, ApplicationBuilder::create()->withSupportedLocales(['fr', 'en']));
+        self::assertInstanceOf(ApplicationBuilder::class, ApplicationBuilder::create()->withSupportedLocales([substr('ab-abcdefgh-abcdefgh-abcdefgh-abcdef', 0, 35)]));
+    }
+
+    public function testWithSupportedLocalesKeepsTheListTheConfigWouldKeep(): void
+    {
+        $app = ApplicationBuilder::create()->withSupportedLocales([' FR ', '', 'EN'])->build();
+
+        self::assertSame('fr', $app->resolveLocaleFromRequest(requestedLocale: 'fr-CA'));
+        self::assertSame('en', $app->resolveLocaleFromRequest(requestedLocale: 'EN'));
+        self::assertSame('en', $app->resolveLocaleFromRequest(requestedLocale: 'de'));
+    }
+
     private static function middleware(): MiddlewareInterface
     {
         return new class implements MiddlewareInterface {

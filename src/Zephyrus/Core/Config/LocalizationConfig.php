@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Zephyrus\Core\Config;
 
+use InvalidArgumentException;
+use Zephyrus\Exceptions\MessageValue;
 use Zephyrus\Formatting\FormatterInput;
+use Zephyrus\Localization\LocaleTag;
 
 /**
  * Immutable localization bootstrap config.
@@ -13,7 +16,10 @@ use Zephyrus\Formatting\FormatterInput;
  * - locale (defaultLocale, default_locale): translator default locale, lower-cased, so 'fr-CA' is
  *   stored as 'fr-ca'. Default 'en'.
  * - supportedLocales (supported_locales): negotiation allowlist. Trimmed, lower-cased, null and blank
- *   entries dropped, any other non-string entry refused. Default [].
+ *   entries dropped. Only [] or no key accepts every locale. Default [].
+ *   REJECTED: a declared null (an unset !env without default); a value that is not a string or a list;
+ *   an entry that is not a string or null; an entry with a comma; a non-blank entry that is not a locale
+ *   tag (fr, pt-BR, at most 35 bytes); a non-empty declaration that names no locale.
  * - localePath (locale_path, jsonLocalePaths, json_locale_paths): one directory of locales.
  *   The legacy array form keeps its last non-empty entry. Default null.
  * - timezone: applied with date_default_timezone_set() by ApplicationBuilder. Default 'UTC'.
@@ -44,6 +50,11 @@ final readonly class LocalizationConfig
         'groupingSeparator' => ['groupingSeparator', 'grouping_separator'],
     ];
 
+    private const string NAMES_NO_LOCALE = 'names no locale, which would accept every locale; name at least one, '
+        . 'or remove the key to accept every locale';
+
+    private const string NOT_A_LOCALE_TAG = 'must be a locale tag, such as fr or pt-BR';
+
     /**
      * @param string[] $supportedLocales
      */
@@ -62,16 +73,26 @@ final readonly class LocalizationConfig
 
     /**
      * @param array<string, mixed> $values
-     * @throws ConfigurationException if a key is unknown, a setting is written in two spellings, locale or timezone
-     *         is blank, a supported locale entry is neither a string nor null, or currency, grouping_separator,
-     *         date_format, time_format or datetime_format is invalid.
+     * @throws ConfigurationException if a key is unknown or a setting is written in two spellings.
+     *         If locale or timezone is blank.
+     *         If supportedLocales is declared null, is not a string or a list, or names no locale.
+     *         If a supportedLocales entry is neither a string nor null, contains a comma or is not a locale tag.
+     *         If currency, grouping_separator, date_format, time_format or datetime_format is invalid.
      */
     public static function fromArray(array $values): self
     {
         $keys = ConfigKeys::read('localization', $values, self::SPELLINGS);
 
         $locale = trim((string) ($keys->value('locale') ?? 'en'));
-        $supportedLocales = (array) ($keys->value('supportedLocales') ?? []);
+        $declaredLocales = $keys->value('supportedLocales');
+        if ($declaredLocales === null && $keys->has('supportedLocales')) {
+            throw ConfigurationException::invalidValue(
+                'localization',
+                'supportedLocales',
+                null,
+                self::NAMES_NO_LOCALE . '; ' . ConfigBoolean::unsetEnvHint('fr'),
+            );
+        }
 
         $localePath = self::resolveLocalePath($keys);
 
@@ -94,7 +115,7 @@ final readonly class LocalizationConfig
             throw ConfigurationException::invalidValue('localization', 'timezone', $timezone, 'must be non-empty');
         }
 
-        $supportedLocales = self::resolveSupportedLocales($supportedLocales);
+        $supportedLocales = self::resolveSupportedLocales($declaredLocales);
 
         $localePath = ($localePath !== null && $localePath !== '') ? $localePath : null;
 
@@ -188,34 +209,129 @@ final readonly class LocalizationConfig
     /**
      * Trim and lower-case each entry, and drop the null and blank ones.
      *
-     * @param array<array-key, mixed> $entries
      * @return list<string>
-     * @throws ConfigurationException if an entry is neither a string nor null.
+     * @throws ConfigurationException if the value is not null, a string or a list, or the list is refused.
      */
-    private static function resolveSupportedLocales(array $entries): array
+    private static function resolveSupportedLocales(mixed $declared): array
+    {
+        if ($declared === null) {
+            return [];
+        }
+
+        if (!is_string($declared) && !is_array($declared)) {
+            throw ConfigurationException::invalidValue(
+                'localization',
+                'supportedLocales',
+                $declared,
+                'must be a string or a list of strings',
+            );
+        }
+
+        $entries = (array) $declared;
+        $refusal = self::supportedLocalesRefusal($entries);
+        if ($refusal !== null) {
+            $wholeValue = $refusal['index'] === null || is_string($declared);
+            $field = $wholeValue ? 'supportedLocales' : 'supportedLocales[' . $refusal['index'] . ']';
+            $value = $wholeValue ? $declared : $entries[$refusal['index']];
+            $reason = $refusal['index'] === null
+                ? $refusal['reason'] . '; ' . ConfigBoolean::unsetEnvHint('fr')
+                : $refusal['reason'];
+            throw ConfigurationException::invalidValue('localization', $field, $value, $reason);
+        }
+
+        return self::normalizeSupportedLocales($entries);
+    }
+
+    /**
+     * Trim and lower-case each entry, and drop the null and blank ones.
+     *
+     * @internal Shared with ApplicationBuilder and Application.
+     * @param array<array-key, mixed> $entries entries already accepted by supportedLocalesRefusal()
+     * @return list<string>
+     */
+    public static function normalizeSupportedLocales(array $entries): array
     {
         $locales = [];
-        foreach ($entries as $i => $locale) {
-            if ($locale === null) {
-                continue;
-            }
-
-            if (!is_string($locale)) {
-                throw ConfigurationException::invalidValue(
-                    'localization',
-                    "supportedLocales[$i]",
-                    $locale,
-                    'each entry must be a string',
-                );
-            }
-
-            $normalized = strtolower(trim($locale));
+        foreach ($entries as $locale) {
+            $normalized = strtolower(trim((string) $locale));
             if ($normalized !== '') {
                 $locales[] = $normalized;
             }
         }
 
         return $locales;
+    }
+
+    /**
+     * Refuse a supported locales argument that supportedLocalesRefusal() refuses, naming the method and parameter.
+     *
+     * @internal Shared with ApplicationBuilder and Application.
+     * @param array<array-key, mixed> $entries
+     * @throws InvalidArgumentException if the list is refused, null entries included.
+     */
+    public static function assertSupportedLocalesArgument(string $method, string $parameter, array $entries): void
+    {
+        $refusal = self::supportedLocalesRefusal($entries, nullIsEntry: true);
+        if ($refusal === null) {
+            return;
+        }
+
+        throw new InvalidArgumentException($refusal['index'] === null
+            ? $method . '(): $' . $parameter . ' names no locale, which would accept every locale; '
+                . 'pass at least one, or an empty list to accept every locale.'
+            : $method . '(): $' . $parameter . '[' . self::shownIndex($refusal['index']) . '] '
+                . MessageValue::describe($entries[$refusal['index']])
+                . ' is refused: ' . $refusal['reason'] . '.');
+    }
+
+    /**
+     * An entry index as a refusal shows it: a key over 64 bytes is quoted and cut, a shorter one is escaped as is.
+     */
+    private static function shownIndex(int|string $index): string
+    {
+        if (is_int($index)) {
+            return (string) $index;
+        }
+
+        return strlen($index) > 64 ? MessageValue::quote($index) : MessageValue::escapeControls($index);
+    }
+
+    /**
+     * The first reason a supported locales list is refused, with the index of the entry or null for the whole list.
+     *
+     * @param array<array-key, mixed> $entries
+     * @param bool $nullIsEntry whether a null entry is refused as an entry that is not a string, instead of ignored
+     * @return array{index: array-key|null, reason: string}|null
+     */
+    private static function supportedLocalesRefusal(array $entries, bool $nullIsEntry = false): ?array
+    {
+        $namesALocale = false;
+        foreach ($entries as $i => $locale) {
+            if ($locale === null && !$nullIsEntry) {
+                continue;
+            }
+
+            if (!is_string($locale)) {
+                return ['index' => $i, 'reason' => 'each entry must be a string'];
+            }
+
+            if (str_contains($locale, ',')) {
+                return ['index' => $i, 'reason' => 'must be one locale; use list items, not a comma inside one item'];
+            }
+
+            $tag = trim($locale);
+            if ($tag !== '' && (strlen($tag) > LocaleTag::MAX_LENGTH || !LocaleTag::isWellFormed($tag))) {
+                return ['index' => $i, 'reason' => self::NOT_A_LOCALE_TAG];
+            }
+
+            $namesALocale = $namesALocale || $tag !== '';
+        }
+
+        if ($entries !== [] && !$namesALocale) {
+            return ['index' => null, 'reason' => self::NAMES_NO_LOCALE];
+        }
+
+        return null;
     }
 
     /**

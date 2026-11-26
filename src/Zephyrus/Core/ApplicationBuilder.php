@@ -367,13 +367,16 @@ final class ApplicationBuilder
     /**
      * Restricts locale resolution (transFromRequest) to this list. An empty list accepts every normalized Accept-Language candidate.
      *
-     * @param string[] $locales
+     * @param array<array-key, mixed> $locales
+     * @throws InvalidArgumentException when an entry is not a string, contains a comma or is not a locale tag, or a non-empty list names no locale.
      */
     #[\NoDiscard]
     public function withSupportedLocales(array $locales): self
     {
+        LocalizationConfig::assertSupportedLocalesArgument('withSupportedLocales', 'locales', $locales);
+
         $clone = clone $this;
-        $clone->supportedLocales = $locales;
+        $clone->supportedLocales = LocalizationConfig::normalizeSupportedLocales($locales);
 
         return $clone;
     }

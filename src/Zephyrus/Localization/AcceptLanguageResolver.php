@@ -10,16 +10,14 @@ namespace Zephyrus\Localization;
  * Order: $requestedLocale (normalized, then progressively shortened: zh-Hant-TW, zh-Hant, zh), the header
  * candidates by q-value (a '*' range selects $defaultLocale), then $defaultLocale, replaced by the first
  * supported locale when unsupported. An empty $supportedLocales accepts every requested or header locale
- * passing LocaleTag::isWellFormed(); others are ignored.
+ * passing LocaleTag::isWellFormed(); others are ignored. Entries of a non-empty list that are not well-formed
+ * tags (a '*' included) are dropped; a list left empty accepts only $defaultLocale.
  */
 final class AcceptLanguageResolver
 {
-    /** Tags longer than this are ignored (RFC 5646 practical maximum). */
-    private const MAX_TAG_LENGTH = 35;
-
     /**
      * @param string   $acceptLanguageHeader Raw header value, may be empty.
-     * @param string[] $supportedLocales     Allowlist. Empty means "accept any well-formed locale".
+     * @param string[] $supportedLocales     Allowlist. Empty means "accept any well-formed locale"; a non-empty list of unusable entries means the default only.
      * @param string   $defaultLocale        Used when nothing matches. An empty value becomes 'en'.
      * @param string   $requestedLocale      Explicit override, may be empty. A '*' is ignored.
      */
@@ -29,14 +27,19 @@ final class AcceptLanguageResolver
         string $defaultLocale = 'en',
         string $requestedLocale = '',
     ): string {
+        $restricted = $supportedLocales !== [];
         $supportedLocales = array_values(array_filter(array_map(
             fn (string $locale): string => $this->normalize($locale),
             $supportedLocales,
-        ), static fn (string $locale): bool => $locale !== ''));
+        ), static fn (string $locale): bool => LocaleTag::isWellFormed($locale)));
 
         $defaultLocale = $this->normalize($defaultLocale);
         if ($defaultLocale === '') {
             $defaultLocale = 'en';
+        }
+
+        if ($restricted && $supportedLocales === []) {
+            $supportedLocales = [$defaultLocale];
         }
 
         if ($supportedLocales !== []) {
@@ -164,7 +167,7 @@ final class AcceptLanguageResolver
     {
         $locale = trim(str_replace('_', '-', $locale));
 
-        if ($locale === '' || strlen($locale) > self::MAX_TAG_LENGTH) {
+        if ($locale === '' || strlen($locale) > LocaleTag::MAX_LENGTH) {
             return '';
         }
 

@@ -7,9 +7,12 @@ namespace Zephyrus\Tests\Unit\Core\Config;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\TestCase;
+use Zephyrus\Core\Config\Configuration;
 use Zephyrus\Core\Config\ConfigurationException;
 use Zephyrus\Core\Config\LocalizationConfig;
+use Zephyrus\Exceptions\MessageValue;
 use Zephyrus\Formatting\FormatterInput;
+use Zephyrus\Tests\Unit\Core\Cache\CacheDirectory;
 use Zephyrus\Tests\Unit\Formatting\FormatterInputTest;
 
 final class LocalizationConfigTest extends TestCase
@@ -136,6 +139,231 @@ final class LocalizationConfigTest extends TestCase
     public function testNullAndBlankSupportedLocaleEntriesAreDroppedSilently(): void
     {
         self::assertSame(['fr'], LocalizationConfig::fromArray(['supportedLocales' => [null, ' FR ', '']])->supportedLocales);
+    }
+
+    public function testASupportedLocalesValueThatIsAnObjectIsRefused(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supportedLocales' => new \stdClass()]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value stdClass: must be a string or a list of strings.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testASupportedLocalesValueThatIsAnIntegerIsRefused(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supportedLocales' => 1]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value 1: must be a string or a list of strings.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function emptiedSupportedLocales(): array
+    {
+        return [
+            'a null entry' => [[null]],
+            'an empty string entry' => [['']],
+            'blank entries' => [[null, '  ', "\t"]],
+            'a blank string' => ['  '],
+        ];
+    }
+
+    #[DataProvider('emptiedSupportedLocales')]
+    public function testASupportedLocalesDeclarationThatNamesNoLocaleIsRefused(mixed $declared): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supportedLocales' => $declared]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value "
+                . MessageValue::describe($declared)
+                . ': names no locale, which would accept every locale; name at least one, or remove the key to accept every locale; an unset !env without a default reads as null; add a default, such as !env NAME, fr.',
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testASupportedLocaleEntryWithACommaIsRefusedNamingItsIndex(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supportedLocales' => ['de', 'fr,en']]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales[1]' has invalid value \"fr,en\": must be one locale; use list items, not a comma inside one item.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * @return array<string, array{0: list<string>, 1: int}>
+     */
+    public static function notLocaleTags(): array
+    {
+        return [
+            'a hyphen' => [['-'], 0],
+            'an underscore' => [['fr', '_'], 1],
+            'a spaced hyphen' => [[' - '], 0],
+            'thirty-six bytes' => [[str_repeat('a', 36)], 0],
+            'a well-formed tag of thirty-six bytes' => [['ab-abcdefgh-abcdefgh-abcdefgh-abcdef'], 0],
+            'semicolon separated tags' => [['fr-CA;en-CA;fr-FR;en-US;es-ES;de-DE;it-IT'], 0],
+            'an internal space' => [['fr en de es it pt nl sv da no fi pl ru'], 0],
+            'a wildcard' => [['*'], 0],
+            'a no-break space inside' => [["fr\u{a0}en"], 0],
+            'a form feed' => [["\f"], 0],
+        ];
+    }
+
+    /**
+     * @param list<string> $declared
+     */
+    #[DataProvider('notLocaleTags')]
+    public function testASupportedLocaleEntryThatIsNotALocaleTagIsRefusedNamingItsIndex(array $declared, int $index): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supportedLocales' => $declared]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales[$index]' has invalid value "
+                . MessageValue::describe($declared[$index])
+                . ': must be a locale tag, such as fr or pt-BR.',
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testAWellFormedSupportedLocaleOfThirtyFiveBytesIsKept(): void
+    {
+        $tag = substr('ab-abcdefgh-abcdefgh-abcdefgh-abcdef', 0, 35);
+
+        self::assertSame([$tag], LocalizationConfig::fromArray(['supportedLocales' => [$tag]])->supportedLocales);
+    }
+
+    public function testAScalarSupportedLocalesThatIsNotALocaleTagIsRefusedWithoutAnIndex(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supported_locales' => 'fr;en']);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value \"fr;en\": must be a locale tag, such as fr or pt-BR.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function supportedLocalesKeys(): array
+    {
+        return [
+            'the snake case key' => ['supported_locales'],
+            'the camel case key' => ['supportedLocales'],
+        ];
+    }
+
+    #[DataProvider('supportedLocalesKeys')]
+    public function testADeclaredNullSupportedLocalesIsRefused(string $key): void
+    {
+        try {
+            LocalizationConfig::fromArray([$key => null]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value null: names no locale, which would accept every locale; name at least one, or remove the key to accept every locale"
+                . "; an unset !env without a default reads as null; add a default, such as !env NAME, fr.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testAYamlKeyLeftEmptyOrUnsetEnvIsRefusedLikeANull(): void
+    {
+        $directory = new CacheDirectory();
+        $file = $directory->file('config.yml', "localization:\n  supported_locales: !env ZEPHYRUS_TEST_UNSET_LOCALES\n");
+
+        try {
+            Configuration::fromYamlFile($file);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value null: names no locale, which would accept every locale; name at least one, or remove the key to accept every locale"
+                . "; an unset !env without a default reads as null; add a default, such as !env NAME, fr.",
+                $exception->getMessage(),
+            );
+        } finally {
+            $directory->remove();
+        }
+    }
+
+    public function testAnAbsentOrEmptySupportedLocalesAcceptsEveryLocale(): void
+    {
+        self::assertSame([], LocalizationConfig::fromArray([])->supportedLocales);
+        self::assertSame([], LocalizationConfig::fromArray(['supportedLocales' => []])->supportedLocales);
+    }
+
+    public function testABlankYamlListItemBesideRealLocalesIsRemoved(): void
+    {
+        $directory = new CacheDirectory();
+        $file = $directory->file('config.yml', "localization:\n  supported_locales:\n    - fr\n    -\n    - EN\n");
+
+        try {
+            self::assertSame(['fr', 'en'], Configuration::fromYamlFile($file)->localization->supportedLocales);
+        } finally {
+            $directory->remove();
+        }
+    }
+
+    public function testAYamlListOfOnlyBlankItemsIsRefused(): void
+    {
+        $directory = new CacheDirectory();
+        $file = $directory->file('config.yml', "localization:\n  supported_locales:\n    - ~\n");
+
+        try {
+            Configuration::fromYamlFile($file);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales' has invalid value array: names no locale, which would accept every locale; name at least one, or remove the key to accept every locale; an unset !env without a default reads as null; add a default, such as !env NAME, fr.",
+                $exception->getMessage(),
+            );
+        } finally {
+            $directory->remove();
+        }
+    }
+
+    public function testAYamlListHoldingACommaSeparatedLocaleIsRefused(): void
+    {
+        $directory = new CacheDirectory();
+        $file = $directory->file('config.yml', "localization:\n  supported_locales:\n    - fr,en\n");
+
+        try {
+            Configuration::fromYamlFile($file);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales[0]' has invalid value \"fr,en\": must be one locale; use list items, not a comma inside one item.",
+                $exception->getMessage(),
+            );
+        } finally {
+            $directory->remove();
+        }
     }
 
     public function testSurroundingWhitespaceIsIgnoredOnTheTimezoneAndTheFormats(): void

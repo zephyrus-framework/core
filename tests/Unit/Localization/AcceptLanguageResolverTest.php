@@ -16,6 +16,25 @@ final class AcceptLanguageResolverTest extends TestCase
         $this->resolver = new AcceptLanguageResolver();
     }
 
+    public function testAListOfOnlyUnusableEntriesAcceptsTheDefaultLocaleAlone(): void
+    {
+        self::assertSame('fr', $this->resolver->resolve('de', ['-'], 'fr', 'zz'));
+        self::assertSame('fr', $this->resolver->resolve('de', [str_repeat('a', 36)], 'fr', 'de'));
+    }
+
+    public function testAListEntryThatIsNotATagIsDroppedWhateverItsShape(): void
+    {
+        self::assertSame('en', $this->resolver->resolve('de', ['*'], 'en'));
+        self::assertSame('en', $this->resolver->resolve('de', ['a b'], 'en'));
+        self::assertSame('en', $this->resolver->resolve('de', ['../../x'], 'en'));
+        self::assertSame('fr', $this->resolver->resolve('fr', ['*', 'fr'], 'en'));
+    }
+
+    public function testAnEmptyListStillAcceptsAnyWellFormedLocale(): void
+    {
+        self::assertSame('zz', $this->resolver->resolve('', [], 'fr', 'zz'));
+    }
+
     // -- Empty / trivial inputs -----------------------------------------------
 
     public function testReturnsDefaultWhenHeaderIsEmpty(): void

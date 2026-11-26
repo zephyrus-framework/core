@@ -11,6 +11,13 @@ namespace Zephyrus\Localization;
  */
 final class LocaleTag
 {
+    /**
+     * Longest tag kept (RFC 5646 practical maximum).
+     *
+     * @internal
+     */
+    public const int MAX_LENGTH = 35;
+
     private const string PATTERN = '/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/D';
 
     /**

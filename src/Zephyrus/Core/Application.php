@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Zephyrus\Core;
 
+use InvalidArgumentException;
+use Zephyrus\Core\Config\LocalizationConfig;
 use Zephyrus\Http\Request;
 use Zephyrus\Http\Response;
 use Zephyrus\Localization\LocaleResolver;
@@ -44,7 +46,8 @@ final readonly class Application
      * A non-empty $supportedLocales replaces the application allowlist for this call only.
      *
      * @param array<string, scalar|null> $parameters
-     * @param string[]                   $supportedLocales Per-call allowlist override.
+     * @param array<array-key, string>   $supportedLocales Per-call allowlist override, refused as withSupportedLocales() refuses.
+     * @throws InvalidArgumentException if $supportedLocales is refused.
      */
     public function transFromRequest(
         string $key,
@@ -53,6 +56,7 @@ final readonly class Application
         ?string $requestedLocale = null,
         array $supportedLocales = [],
     ): string {
+        LocalizationConfig::assertSupportedLocalesArgument('transFromRequest', 'supportedLocales', $supportedLocales);
         $locale = $this->resolveLocaleFromRequest($request, $requestedLocale, $supportedLocales);
 
         return $this->translator->trans($key, $parameters, $locale);
@@ -62,13 +66,16 @@ final readonly class Application
      * Resolves the locale with the same policy as transFromRequest(). Returns
      * null when neither $request nor $requestedLocale is given.
      *
-     * @param string[] $supportedLocales Per-call allowlist override.
+     * @param array<array-key, string> $supportedLocales Per-call allowlist override, refused as withSupportedLocales() refuses.
+     * @throws InvalidArgumentException if $supportedLocales is refused.
      */
     public function resolveLocaleFromRequest(
         ?Request $request = null,
         ?string $requestedLocale = null,
         array $supportedLocales = [],
     ): ?string {
+        LocalizationConfig::assertSupportedLocalesArgument('resolveLocaleFromRequest', 'supportedLocales', $supportedLocales);
+
         if ($request === null && $requestedLocale === null) {
             return null;
         }
@@ -80,7 +87,9 @@ final readonly class Application
             requestedLocale:      $requestedLocale,
             acceptLanguageHeader: $acceptLanguage,
             defaultLocale:        $this->defaultLocale,
-            supportedLocales:     $supportedLocales !== [] ? $supportedLocales : $this->supportedLocales,
+            supportedLocales:     $supportedLocales !== []
+                ? LocalizationConfig::normalizeSupportedLocales($supportedLocales)
+                : $this->supportedLocales,
         );
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Zephyrus\Tests\Unit\Core;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Zephyrus\Core\App;
 use Zephyrus\Core\ApplicationBuilder;
@@ -221,6 +222,59 @@ final class ApplicationLocalizationTest extends TestCase
         );
 
         self::assertSame('Guten Tag', $response);
+    }
+
+    /**
+     * @return array<string, array{0: array<array-key, mixed>, 1: string}>
+     */
+    public static function refusedPerCallLists(): array
+    {
+        return [
+            'a null entry' => [['fr', null], 'resolveLocaleFromRequest(): $supportedLocales[1] null is refused: each entry must be a string.'],
+            'a comma entry' => [['fr,de'], 'resolveLocaleFromRequest(): $supportedLocales[0] "fr,de" is refused: must be one locale; use list items, not a comma inside one item.'],
+            'a wildcard' => [['*'], 'resolveLocaleFromRequest(): $supportedLocales[0] "*" is refused: must be a locale tag, such as fr or pt-BR.'],
+            'only blank entries' => [['', ' '], 'resolveLocaleFromRequest(): $supportedLocales names no locale, which would accept every locale; pass at least one, or an empty list to accept every locale.'],
+            'a 1000-byte key' => [[str_repeat('a', 1000) => 'fr,de'], 'resolveLocaleFromRequest(): $supportedLocales["' . str_repeat('a', 64) . '..." (1000 bytes)] "fr,de" is refused: must be one locale; use list items, not a comma inside one item.'],
+        ];
+    }
+
+    /**
+     * @param array<array-key, mixed> $supportedLocales
+     */
+    #[DataProvider('refusedPerCallLists')]
+    public function testAPerCallSupportedLocalesListIsRefusedLikeTheBuilderRefusesIt(array $supportedLocales, string $message): void
+    {
+        $app = ApplicationBuilder::create()->withLocaleLoader($this->makeLoader(), defaultLocale: 'en')->build();
+
+        try {
+            $app->resolveLocaleFromRequest(requestedLocale: 'fr', supportedLocales: $supportedLocales);
+            self::fail('expected a refusal');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame($message, $exception->getMessage());
+        }
+    }
+
+    public function testTransFromRequestRefusesAPerCallListWithoutResolvingFirst(): void
+    {
+        $app = ApplicationBuilder::create()->withLocaleLoader($this->makeLoader(), defaultLocale: 'en')->build();
+
+        try {
+            $app->transFromRequest('greeting', supportedLocales: ['fr,de']);
+            self::fail('expected a refusal');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame(
+                'transFromRequest(): $supportedLocales[0] "fr,de" is refused: must be one locale; use list items, not a comma inside one item.',
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testAnEmptyPerCallListStillAcceptsEveryLocale(): void
+    {
+        $app = ApplicationBuilder::create()->withLocaleLoader($this->makeLoader(), defaultLocale: 'en')->build();
+
+        self::assertSame('de', $app->resolveLocaleFromRequest(requestedLocale: 'de', supportedLocales: []));
+        self::assertSame('fr', $app->resolveLocaleFromRequest(requestedLocale: 'fr', supportedLocales: ['fr', 'en']));
     }
 
     // -------------------------------------------------------------------------

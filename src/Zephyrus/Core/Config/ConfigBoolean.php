@@ -18,8 +18,15 @@ final class ConfigBoolean
     private const array TRUE_WORDS = ['true', '1', 'on', 'yes'];
     private const array FALSE_WORDS = ['false', '0', 'off', 'no'];
 
-    private const string UNSET_ENV_HINT = 'an unset !env without a default reads as null; add a default, such as '
-        . '!env NAME, false';
+    private const string UNSET_ENV_HINT = 'an unset !env without a default reads as null; add a default, such as ';
+
+    /**
+     * How an unset !env gets a default, with $example as the default of the sample.
+     */
+    public static function unsetEnvHint(string $example): string
+    {
+        return self::UNSET_ENV_HINT . '!env NAME, ' . $example;
+    }
 
     /**
      * @throws ConfigurationException when the value is not a recognisable boolean; the refusal of a null says how an
@@ -52,7 +59,7 @@ final class ConfigBoolean
             $key,
             $value,
             'is not a boolean; use true/false, 1/0, on/off or yes/no'
-                . ($value === null ? '; ' . self::UNSET_ENV_HINT : ''),
+                . ($value === null ? '; ' . self::unsetEnvHint('false') : ''),
         );
     }
 }

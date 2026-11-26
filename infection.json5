@@ -421,7 +421,7 @@
                 "Zephyrus\\Core\\Bootstrap\\ApplicationBootstrap::fromConfigFiles::27", // no files builds the same default app
                 "Zephyrus\\Core\\Bootstrap\\ApplicationBootstrap::normalizeEnvironmentName::201", // the fall-through returns '' too
                 "Zephyrus\\Core\\Config\\ConfigSection::redactKey::288", // the loop ends after the last segment, the extra reference binds an existing key
-                "Zephyrus\\Core\\Config\\Configuration::fromFile::360", // same YAML read either way
+                "Zephyrus\\Core\\Config\\Configuration::fromFile::361", // same YAML read either way
                 "Zephyrus\\Core\\Config\\SessionConfig::assertCookieCanBeStored::226", // __Host- and __Secure- are exclusive
                 "Zephyrus\\Core\\DebugIntegration::declaredProperties::581", // a cache hit recomputes the same map
                 "Zephyrus\\Core\\HttpKernel::fireExceptionEvent::334", // the Error is caught and swallowed
@@ -621,7 +621,7 @@
         },
         "UnwrapStrToLower": {
             "ignore": [
-                "Zephyrus\\Core\\Config\\Configuration::fromFile::358", // extension is lowercased by the loader
+                "Zephyrus\\Core\\Config\\Configuration::fromFile::359", // extension is lowercased by the loader
                 "Zephyrus\\Core\\DebugIntegration::matchesSensitivePattern::654", // the pattern carries the i flag
                 "Zephyrus\\Http\\BodySize::iniFlag::117", // killed by RequestPostMaxSizeTest through php -S, out of Infection's reach
                 "Zephyrus\\Http\\Request::httpScheme::751", // value is already lowercased upstream

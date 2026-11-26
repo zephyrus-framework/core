@@ -310,7 +310,8 @@ final readonly class Configuration
     /**
      * Build a Configuration tree from multiple YAML files merged recursively.
      *
-     * Later files override earlier files (`array_replace_recursive` semantics).
+     * Later files override earlier ones: mappings merge key by key, and a list or a scalar replaces the earlier value entirely.
+     * An empty section (`security:` with no content) in a later file leaves the earlier section unchanged.
      *
      * @param string[] $paths
      * @param array<string, class-string<ConfigSection>> $sectionFactories
@@ -369,7 +370,9 @@ final readonly class Configuration
      * Build a Configuration tree from multiple files merged recursively.
      *
      * Supports both YAML and PHP files (detected by extension).
-     * Later files override earlier files (`array_replace_recursive` semantics).
+     * Later files override earlier ones: mappings merge key by key, and a list or a scalar replaces the earlier value entirely.
+     * An empty section in a later file changes nothing, and a PHP array with non-contiguous integer keys
+     * (an unreindexed array_filter()) is a mapping, not a list: wrap it in array_values().
      *
      * @param string[] $paths
      * @param array<string, class-string<ConfigSection>> $sectionFactories
@@ -576,6 +579,33 @@ final readonly class Configuration
     }
 
     /**
+     * Merge mappings key by key; a list from `$later` replaces the earlier value, never merges with it by index.
+     *
+     * @param array<array-key, mixed> $base
+     * @param array<array-key, mixed> $later
+     * @return array<array-key, mixed>
+     */
+    private static function mergeConfigurationArrays(array $base, array $later): array
+    {
+        foreach ($later as $key => $value) {
+            $earlier = $base[$key] ?? null;
+            $mergeable = is_array($value) && is_array($earlier)
+                && !self::isFilledList($value) && !self::isFilledList($earlier);
+            $base[$key] = $mergeable ? self::mergeConfigurationArrays($earlier, $value) : $value;
+        }
+
+        return $base;
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     */
+    private static function isFilledList(array $value): bool
+    {
+        return $value !== [] && array_is_list($value);
+    }
+
+    /**
      * @param string[] $paths
      * @return array<string, mixed>
      */
@@ -589,11 +619,28 @@ final readonly class Configuration
                 continue;
             }
 
-            $loaded = self::loadFileAsArray($path);
-            $merged = array_replace_recursive($merged, $loaded);
+            $merged = self::mergeFile($merged, self::loadFileAsArray($path));
         }
 
         return $merged;
+    }
+
+    /**
+     * Merge one file into the result; an empty section (null) never erases an earlier section.
+     *
+     * @param array<array-key, mixed> $merged
+     * @param array<array-key, mixed> $loaded
+     * @return array<array-key, mixed>
+     */
+    private static function mergeFile(array $merged, array $loaded): array
+    {
+        foreach ($loaded as $section => $body) {
+            if ($body === null && isset($merged[$section])) {
+                unset($loaded[$section]);
+            }
+        }
+
+        return self::mergeConfigurationArrays($merged, $loaded);
     }
 
     /**
@@ -651,8 +698,7 @@ final readonly class Configuration
                 continue;
             }
 
-            $loaded = (new ConfigurationFile($path))->toArray();
-            $merged = array_replace_recursive($merged, $loaded);
+            $merged = self::mergeFile($merged, (new ConfigurationFile($path))->toArray());
         }
 
         return self::fromArray($merged, $sectionFactories);

@@ -12,6 +12,7 @@ changes are listed first, each with the change to make in your code.
 ### Fixed
 
 - The shared column metadata cache key separates the DSN, the `columnCacheVersion` and the statement unambiguously, so a version that contains `|` no longer lets two statements share a column shape. Existing APCu entries go cold once after upgrading: the first query of each statement reads its column metadata again.
+- `localization.supported_locales` refuses an entry that is neither a string nor null, instead of turning it into a locale: an array entry used to produce the locale `array` with a PHP warning, and an integer or a boolean became a locale `1` or vanished. Null and blank entries are still dropped.
 
 ## [3.18.0] - 2026-11-20
 

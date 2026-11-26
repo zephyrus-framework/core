@@ -107,6 +107,37 @@ final class LocalizationConfigTest extends TestCase
         self::assertSame(['fr'], LocalizationConfig::fromArray(['supportedLocales' => ' FR '])->supportedLocales);
     }
 
+    public function testASupportedLocaleEntryThatIsAnArrayIsRefusedNamingItsIndex(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supported_locales' => [['en'], 'en']]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales[0]' has invalid value array: each entry must be a string.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testASupportedLocaleEntryThatIsAnIntegerIsRefusedNamingItsIndex(): void
+    {
+        try {
+            LocalizationConfig::fromArray(['supportedLocales' => ['fr', 1]]);
+            self::fail('expected a refusal');
+        } catch (ConfigurationException $exception) {
+            self::assertSame(
+                "Configuration section 'localization' field 'supportedLocales[1]' has invalid value 1: each entry must be a string.",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    public function testNullAndBlankSupportedLocaleEntriesAreDroppedSilently(): void
+    {
+        self::assertSame(['fr'], LocalizationConfig::fromArray(['supportedLocales' => [null, ' FR ', '']])->supportedLocales);
+    }
+
     public function testSurroundingWhitespaceIsIgnoredOnTheTimezoneAndTheFormats(): void
     {
         $config = LocalizationConfig::fromArray([

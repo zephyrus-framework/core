@@ -265,7 +265,7 @@
                 "Zephyrus\\Console\\Console::refuseOverlap::149", // a cache path never equals a .gitignore
                 "Zephyrus\\Core\\ApplicationBuilder::load::1005", // Formatter also reads '' as no currency
                 "Zephyrus\\Core\\Cache\\AtomicFileWriter::replace::254", // differs only when fwrite() fails, a full disk, which a test cannot cause; chmod() and fflush() cannot fail on the file just created
-                "Zephyrus\\Core\\Config\\LocalizationConfig::fromArray::100", // resolveLocalePath never returns an empty string
+                "Zephyrus\\Core\\Config\\LocalizationConfig::fromArray::99", // resolveLocalePath never returns an empty string
                 "Zephyrus\\Core\\HttpKernel::reportReadLimitBelowConfiguration::150", // killed by RequestPostMaxSizeTest through php -S, out of Infection's reach
                 "Zephyrus\\Core\\HttpKernel::reportReadLimitBelowConfiguration::152", // killed by RequestPostMaxSizeTest through php -S, out of Infection's reach
                 "Zephyrus\\Http\\Error\\HttpExceptionResponder::preferredFormat::198", // same weights, same final choice
@@ -555,7 +555,7 @@
                 "Zephyrus\\Core\\Config\\EnvironmentContract::requireOneOf::80", // nothing reads the allowed list keys
                 "Zephyrus\\Core\\DebugIntegration::installSecretMasking::402", // the spread that reads the list renumbers it
                 "Zephyrus\\Core\\DebugIntegration::installSecretMasking::425", // array_merge renumbers the list below
-                "Zephyrus\\Core\\Config\\LocalizationConfig::resolveLocalePath::201", // end() returns the same last element
+                "Zephyrus\\Core\\Config\\LocalizationConfig::resolveLocalePath::233", // end() returns the same last element
                 "Zephyrus\\Data\\DatabaseActor::set::180", // quoteList() reads the values only
                 "Zephyrus\\Event\\EventDispatcher::matchingRegistryKeys::259", // keys are never read
                 "Zephyrus\\Event\\EventDispatcher::matchingRegistryKeys::265", // keys are never read

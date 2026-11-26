@@ -12,8 +12,8 @@ use Zephyrus\Formatting\FormatterInput;
  * YAML keys (aliases accepted where listed, one spelling per setting; any other key is refused):
  * - locale (defaultLocale, default_locale): translator default locale, lower-cased, so 'fr-CA' is
  *   stored as 'fr-ca'. Default 'en'.
- * - supportedLocales (supported_locales): negotiation allowlist. Trimmed, lower-cased, blanks dropped.
- *   Default [].
+ * - supportedLocales (supported_locales): negotiation allowlist. Trimmed, lower-cased, null and blank
+ *   entries dropped, any other non-string entry refused. Default [].
  * - localePath (locale_path, jsonLocalePaths, json_locale_paths): one directory of locales.
  *   The legacy array form keeps its last non-empty entry. Default null.
  * - timezone: applied with date_default_timezone_set() by ApplicationBuilder. Default 'UTC'.
@@ -63,7 +63,8 @@ final readonly class LocalizationConfig
     /**
      * @param array<string, mixed> $values
      * @throws ConfigurationException if a key is unknown, a setting is written in two spellings, locale or timezone
-     *         is blank, or currency, grouping_separator, date_format, time_format or datetime_format is invalid.
+     *         is blank, a supported locale entry is neither a string nor null, or currency, grouping_separator,
+     *         date_format, time_format or datetime_format is invalid.
      */
     public static function fromArray(array $values): self
     {
@@ -93,9 +94,7 @@ final readonly class LocalizationConfig
             throw ConfigurationException::invalidValue('localization', 'timezone', $timezone, 'must be non-empty');
         }
 
-        $supportedLocales = array_values(array_filter(array_map(static function (mixed $locale): string {
-            return strtolower(trim((string) $locale));
-        }, $supportedLocales), static fn (string $locale): bool => $locale !== ''));
+        $supportedLocales = self::resolveSupportedLocales($supportedLocales);
 
         $localePath = ($localePath !== null && $localePath !== '') ? $localePath : null;
 
@@ -184,6 +183,39 @@ final readonly class LocalizationConfig
         }
 
         return $currency;
+    }
+
+    /**
+     * Trim and lower-case each entry, and drop the null and blank ones.
+     *
+     * @param array<array-key, mixed> $entries
+     * @return list<string>
+     * @throws ConfigurationException if an entry is neither a string nor null.
+     */
+    private static function resolveSupportedLocales(array $entries): array
+    {
+        $locales = [];
+        foreach ($entries as $i => $locale) {
+            if ($locale === null) {
+                continue;
+            }
+
+            if (!is_string($locale)) {
+                throw ConfigurationException::invalidValue(
+                    'localization',
+                    "supportedLocales[$i]",
+                    $locale,
+                    'each entry must be a string',
+                );
+            }
+
+            $normalized = strtolower(trim($locale));
+            if ($normalized !== '') {
+                $locales[] = $normalized;
+            }
+        }
+
+        return $locales;
     }
 
     /**

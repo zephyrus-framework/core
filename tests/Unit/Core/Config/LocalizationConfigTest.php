@@ -63,6 +63,7 @@ final class LocalizationConfigTest extends TestCase
             'a header injection' => ["fr\r\nX"],
             'a lone hyphen' => ['-'],
             'an inner space' => ['fr en'],
+            'a trailing form feed' => ["fr\f"],
             'a well-formed tag one byte over the limit' => ['ab-abcdefgh-abcdefgh-abcdefgh-abcdef'],
         ];
     }

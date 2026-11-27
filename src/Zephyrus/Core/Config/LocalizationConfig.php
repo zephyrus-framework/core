@@ -51,6 +51,9 @@ final readonly class LocalizationConfig
         'groupingSeparator' => ['groupingSeparator', 'grouping_separator'],
     ];
 
+    /** The characters trim() removed by default before PHP 8.6, so a locale reads the same on every supported version. */
+    private const string LOCALE_TRIM_CHARACTERS = " \t\n\r\0\x0B";
+
     private const string NAMES_NO_LOCALE = 'names no locale, which would accept every locale; name at least one, '
         . 'or remove the key to accept every locale';
 
@@ -93,7 +96,7 @@ final readonly class LocalizationConfig
             );
         }
 
-        $locale = trim((string) ($keys->value('locale') ?? 'en'));
+        $locale = trim((string) ($keys->value('locale') ?? 'en'), self::LOCALE_TRIM_CHARACTERS);
         $declaredLocales = $keys->value('supportedLocales');
         if ($declaredLocales === null && $keys->has('supportedLocales')) {
             throw ConfigurationException::invalidValue(
@@ -267,7 +270,7 @@ final readonly class LocalizationConfig
     {
         $locales = [];
         foreach ($entries as $locale) {
-            $normalized = strtolower(trim((string) $locale));
+            $normalized = strtolower(trim((string) $locale, self::LOCALE_TRIM_CHARACTERS));
             if ($normalized !== '') {
                 $locales[] = $normalized;
             }
@@ -354,7 +357,7 @@ final readonly class LocalizationConfig
                 return ['index' => $i, 'reason' => 'must be one locale; use list items, not a comma inside one item'];
             }
 
-            $tag = trim($locale);
+            $tag = trim($locale, self::LOCALE_TRIM_CHARACTERS);
             if ($tag !== '' && !self::isLocaleTag($tag)) {
                 return ['index' => $i, 'reason' => self::NOT_A_LOCALE_TAG];
             }
